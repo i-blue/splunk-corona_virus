@@ -1,0 +1,150 @@
+<form theme="dark">
+  <label>Confirmed Cases Statuses Distribution</label>
+  <search id="base">
+    <query>|inputlookup confirmed.csv | fields *</query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <refresh>10m</refresh>
+    <refreshType>delay</refreshType>
+  </search>
+  <fieldset submitButton="false">
+    <input type="multiselect" token="country">
+      <label>Country</label>
+      <fieldForLabel>Country</fieldForLabel>
+      <fieldForValue>Country</fieldForValue>
+      <search base="base">
+        <query>| fields - "Province/State" 
+| rename "Country/Region" as Country 
+| eval Country=Country+","+Lat+","+Long 
+| stats sum(*) as * by Country 
+| dedup Country 
+| transpose 0 column_name=_time header_field=Country 
+| eval _time=strptime(_time,"%m/%d/%y") 
+| sort 0 - _time 
+| head 1 
+| fields - _time 
+| transpose 0
+| rename column as "Country", "row 1" as "Confirmed" 
+| sort 0 - Total 
+| eval fields=split(Country,",") 
+| eval Lat=mvindex(fields,1) 
+| eval Long=mvindex(fields,2) 
+| eval Country=mvindex(fields,0) | table Country | dedup Country</query>
+        <refresh>10m</refresh>
+        <refreshType>delay</refreshType>
+      </search>
+      <prefix>Country IN (</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>"</valuePrefix>
+      <valueSuffix>"</valueSuffix>
+      <delimiter>,</delimiter>
+      <choice value="*">All Countries</choice>
+      <default>Israel,Russia,United Kingdom,Sweden,Belgium,Germany,Italy,Greece,Australia,Japan</default>
+      <initialValue>Israel,Russia,United Kingdom,Sweden,Belgium,Germany,Italy,Greece,Australia,Japan</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <search>
+          <query>| inputlookup confirmed.csv 
+| fields * 
+| fields - Lat Long "Province/State" 
+| rename "Country/Region" as Country 
+| stats sum(*) as * by Country 
+| dedup Country 
+| search $country$ 
+| addtotals 
+| sort 0 - Total 
+| head 25 
+| fields - Total 
+| untable Country _time count 
+| eval _time=strptime(_time,"%m/%d/%y") 
+| sort 0 + _time 
+| eval starttime="01012020" 
+| eval time2=strptime(starttime,"%m%d%Y") 
+| eval days=floor((_time-time2)/86400) 
+| fields days * 
+| fields - days starttime time2 *username* 
+| fields _time * 
+| table _time count Country 
+| join Country _time 
+    [| inputlookup recovered.csv 
+    | fields - Lat Long "Province/State" 
+    | rename "Country/Region" as Country 
+    | stats sum(*) as * by Country 
+    | dedup Country 
+    | untable Country _time count 
+    | eval _time=strptime(_time,"%m/%d/%y") 
+    | sort 0 + _time 
+    | eval starttime="01012020" 
+    | eval time2=strptime(starttime,"%m%d%Y") 
+    | eval days=floor(((_time+86400)-time2)/86400) 
+    | fields days * 
+    | fields - days starttime time2 *username* 
+    | fields _time * 
+    | table Country _time count 
+    | rename count as recovery_count
+        ] 
+| join Country _time 
+    [| inputlookup deaths.csv 
+    | fields - Lat Long "Province/State" 
+    | rename "Country/Region" as Country 
+    | stats sum(*) as * by Country 
+    | dedup Country 
+    | untable Country _time count 
+    | eval _time=strptime(_time,"%m/%d/%y") 
+    | sort 0 + _time 
+    | eval starttime="01012020" 
+    | eval time2=strptime(starttime,"%m%d%Y") 
+    | eval days=floor(((_time+86400)-time2)/86400) 
+    | fields days * 
+    | fields - days starttime time2 *username* 
+    | fields _time * 
+    | table Country _time count 
+    | rename count as death_count
+        ] 
+| eval active_cases=count-recovery_count-death_count 
+| chart values(active_cases) as infected values(recovery_count) as recovered values(death_count) as xpired over _time by Country useother=f</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">collapsed</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="height">800</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">1</option>
+        <option name="trellis.scales.shared">0</option>
+        <option name="trellis.size">medium</option>
+        <option name="trellis.splitBy">Country</option>
+      </chart>
+    </panel>
+  </row>
+</form>
