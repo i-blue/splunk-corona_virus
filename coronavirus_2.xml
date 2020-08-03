@@ -1,0 +1,892 @@
+<form theme="dark" stylesheet="dashboard.css" script="search:multiselect_remove_all.js">
+  <label>Coronavirus 2</label>
+  <search id="base">
+    <query>|inputlookup confirmed.csv | fields *</query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <refresh>10m</refresh>
+    <refreshType>delay</refreshType>
+  </search>
+  <search base="isr">
+    <query>| eventstats max(_time) as mt| convert ctime(mt) timeformat="%d/%m/%Y"</query>
+    <done>
+      <condition>
+        <set token="mt">$result.mt$</set>
+      </condition>
+    </done>
+  </search>
+  <fieldset submitButton="false">
+    <input type="dropdown" token="country">
+      <label>Country</label>
+      <fieldForLabel>Country</fieldForLabel>
+      <fieldForValue>Country</fieldForValue>
+      <search base="base">
+        <query>| fields - "Province/State"
+
+| rename "Country/Region" as Country
+
+| eval Country=Country+","+Lat+","+Long
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 - _time
+
+| head 1
+
+| fields - _time
+
+| transpose
+
+| rename column as "Country", "row 1" as "Confirmed"
+
+| sort 0 - Total
+
+| eval fields=split(Country,",")
+
+| eval Lat=mvindex(fields,1)
+
+| eval Long=mvindex(fields,2)
+
+| eval Country=mvindex(fields,0) | table Country | dedup Country</query>
+      </search>
+      <prefix>Country IN ("</prefix>
+      <suffix>")</suffix>
+      <choice value="*">All Countries</choice>
+      <default>Israel</default>
+      <initialValue>Israel</initialValue>
+      <change>
+        <condition match="value=&quot;Israel&quot;">
+          <set token="showISRrow">"true"</set>
+        </condition>
+        <condition>
+          <unset token="showISRrow"></unset>
+        </condition>
+      </change>
+    </input>
+    <input type="dropdown" token="gp">
+      <label>Graphs Period</label>
+      <choice value="15">2 weeks</choice>
+      <choice value="31">1 month</choice>
+      <choice value="61">2 months</choice>
+      <choice value="10000">Since 1/1/20</choice>
+      <default>15</default>
+      <initialValue>15</initialValue>
+      <change>
+        <eval token="gpl">case($gp$="15","Over The Last 2 Weeks", $gp$="31", "Over The Last Month",$gp$="61", "Over The Last 2 Months", $gp$="10000", "Since 1/1/2020"</eval>
+      </change>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <title>Last Update</title>
+      <single>
+        <search base="base">
+          <query>|  fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 - _time
+
+| head 1
+
+| fields + _time
+
+| eval date = _time
+
+| eval date=strftime(date,"%d/%m/%y")
+
+| fields date</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="height">115</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051", "0x0877a6", "0xf8be34", "0xf1813f", "0xdc4e41"]</option>
+        <option name="rangeValues">[0,30,70,100]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Confirmed Cases</title>
+      <single>
+        <search base="base">
+          <query>
+
+| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 - _time
+
+| head 1
+
+| fields - _time
+
+| transpose
+
+| rename column as "Country", "row 1" as "Total"
+
+| sort 0 - Total
+
+| stats sum(Total) as Total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Recovered</title>
+      <single>
+        <search>
+          <query>| inputlookup recovered.csv
+
+| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 - _time
+
+| head 1
+
+| fields - _time
+
+| transpose
+
+| rename column as "Country", "row 1" as "Total"
+
+| sort 0 - Total
+
+| stats sum(Total) as Total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Deaths</title>
+      <single>
+        <search>
+          <query>| inputlookup deaths.csv
+
+| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 - _time
+
+| head 1
+
+| fields - _time
+
+| transpose
+
+| rename column as "Country", "row 1" as "Total"
+
+| sort 0 - Total
+
+| stats sum(Total) as Total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Recovery %</title>
+      <single>
+        <search base="srd">
+          <query>| tail 1 | eval recov_pct=round((100*recovered)/(infected+recovered+xpired),2)
+
+|  fields recov_pct</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0.00</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Deaths %</title>
+      <single>
+        <search base="srd">
+          <query>| tail 1 | eval death_pct=round((100*xpired)/(infected+recovered+xpired),2)
+
+|  fields death_pct</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0.00</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Infection Rate</title>
+      <single>
+        <search base="base">
+          <query>| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 + _time
+
+| eval starttime="01012020"
+
+| eval time2=strptime(starttime,"%m%d%Y")
+
+| eval days=floor((_time-time2)/86400)
+
+| fields days *
+
+| fields - days starttime time2 *username*
+
+| fields _time *
+
+| addtotals
+
+| fields _time Total
+
+| streamstats current=f window=2 last(Total) as last
+
+| streamstats current=f window=2 last(Total) as last
+
+| eval perc_incr=round(((Total-last)/last)*100, 2)
+
+| stats last(perc_incr) AS R</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0.00</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>New Cases - Size of Bubble by New Deaths Count $gpl$</title>
+      <chart>
+        <search base="base" id="new_cases">
+          <query>| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| addtotals
+
+| sort 0 - Total
+
+| head 25
+
+| fields - Total
+
+| untable Country _time count
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| eval starttime="01012020"
+
+| eval time2=strptime(starttime,"%m%d%Y")
+
+| eval days=floor(((_time+86400)-time2)/86400)
+
+| table days count Country
+
+| join Country days
+
+    [| inputlookup deaths.csv
+
+    | fields - Lat Long "Province/State"
+
+    | rename "Country/Region" as Country
+
+    | stats sum(*) as * by Country
+
+    | dedup Country
+
+    | untable Country _time count
+
+    | eval _time=strptime(_time,"%m/%d/%y")
+
+    | eval starttime="01012020"
+
+    | eval time2=strptime(starttime,"%m%d%Y")
+
+    | eval days=floor(((_time+86400)-time2)/86400)
+
+    | table Country days count
+
+    | rename count as death_count
+
+        ]
+
+| fields Country days count death_count
+
+            | sort 0 Country days
+
+| autoregress count p=1 as prev
+
+| autoregress death_count as death_prev
+
+| eval new_cases=count-prev, new_deaths=death_count-death_prev
+
+| where new_cases&gt;0
+
+| fields Country days new_cases new_deaths
+
+| tail $gp$
+
+| sort 0 days</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.text">Days since January 01, 2020</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.text">New Cases</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">bubble</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>5d Average New Cases $gpl$</title>
+      <chart>
+        <search base="new_cases">
+          <query>| streamstats avg(new_cases) as anc window=5
+
+| eval "Avg New Cases"=round(anc,2)
+
+|table days "Avg New Cases" trend
+
+| tail $gp$
+
+| sort 0 days</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="charting.axisTitleX.text">Days since January 01, 2020</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>infected vs Recovered vs Deaths Counts</title>
+      <chart>
+        <search id="srd">
+          <query>| inputlookup confirmed.csv
+
+| fields *
+
+| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| addtotals
+
+| sort 0 - Total
+
+| head 25
+
+| fields - Total
+
+| untable Country _time count
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 + _time
+
+| eval starttime="01012020"
+
+| eval time2=strptime(starttime,"%m%d%Y")
+
+| eval days=floor((_time-time2)/86400)
+
+| fields days *
+
+| fields - days starttime time2 *username*
+
+| fields _time *
+
+| table _time count Country
+
+| join Country _time
+
+    [| inputlookup recovered.csv
+
+    | fields - Lat Long "Province/State"
+
+    | rename "Country/Region" as Country
+
+    | stats sum(*) as * by Country
+
+    | dedup Country
+
+    | untable Country _time count
+
+    | eval _time=strptime(_time,"%m/%d/%y")
+
+    | sort 0 + _time
+
+    | eval starttime="01012020"
+
+    | eval time2=strptime(starttime,"%m%d%Y")
+
+    | eval days=floor(((_time+86400)-time2)/86400)
+
+    | fields days *
+
+    | fields - days starttime time2 *username*
+
+    | fields _time *
+
+    | table Country _time count
+
+    | rename count as recovery_count
+
+        ]
+
+| join Country _time
+
+    [| inputlookup deaths.csv
+
+    | fields - Lat Long "Province/State"
+
+    | rename "Country/Region" as Country
+
+    | stats sum(*) as * by Country
+
+    | dedup Country
+
+    | untable Country _time count
+
+    | eval _time=strptime(_time,"%m/%d/%y")
+
+    | sort 0 + _time
+
+    | eval starttime="01012020"
+
+    | eval time2=strptime(starttime,"%m%d%Y")
+
+    | eval days=floor(((_time+86400)-time2)/86400)
+
+    | fields days *
+
+    | fields - days starttime time2 *username*
+
+    | fields _time *
+
+    | table Country _time count
+
+    | rename count as death_count
+
+        ]
+
+| eval active_cases=count-recovery_count-death_count
+
+| chart values(active_cases) as infected values(recovery_count) as recovered values(death_count) as xpired over _time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.text">Confirmed Cases</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="height">350</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Total Confirmed Cases With Overall Infection Rate</title>
+      <chart>
+        <search base="base">
+          <query>| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 + _time
+
+| eval starttime="01012020"
+
+| eval time2=strptime(starttime,"%m%d%Y")
+
+| eval days=floor((_time-time2)/86400)
+
+| fields days *
+
+| fields - days starttime time2 *username*
+
+| fields _time *
+
+| addtotals
+
+| fields _time Total
+
+| eval num=1
+
+| streamstats sum(num) as num
+
+| eventstats max(Total) as max min(Total) as min max(num) as max_points
+
+| eval trend=max/max_points
+
+| fields - min max max_points
+
+| sort 0 + Total
+
+| streamstats sum(trend) as "Average Cases (All-Time)"
+
+| fields - trend
+
+| rename "Total" as "Total Cases"
+
+| eval "Overall Infection Rate"=round('Total Cases'/num,2)
+
+| fields - num "Average Cases (All-Time)"
+
+| eventstats max("Overall Infection Rate") as "Maximum Infection Rate"
+
+| rename "Total Cases" as "TotalCases"
+
+| streamstats current=f window=2 last(TotalCases) as last
+
+| rename TotalCases as "Total Cases"
+
+| fields - last</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"Overall Infection Rate","Maximum Infection Rate","Percent Increase"</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="height">350</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Daily Infection Rate</title>
+      <chart>
+        <search base="base">
+          <done>
+            <set token="r">$job."Overall Infection Rate"$</set>
+          </done>
+          <query>| fields - Lat Long "Province/State"
+
+| rename "Country/Region" as Country
+
+| stats sum(*) as * by Country
+
+| dedup Country
+
+| search $country$
+
+| transpose 0 column_name=_time header_field=Country
+
+| eval _time=strptime(_time,"%m/%d/%y")
+
+| sort 0 + _time
+
+| eval starttime="01012020"
+
+| eval time2=strptime(starttime,"%m%d%Y")
+
+| eval days=floor((_time-time2)/86400)
+
+| fields days *
+
+| fields - days starttime time2 *username*
+
+| fields _time *
+
+| addtotals
+
+| fields _time Total
+
+| rename "Total" as "Total Cases"
+
+| rename "Total Cases" as "TotalCases"
+
+| streamstats current=f window=2 last(TotalCases) as last
+
+| eval perc_incr=round(((TotalCases-last)/last)*100, 2)
+
+| rename TotalCases as "Total Cases", perc_incr as "Daily Infection Rate"
+
+| fields - last
+
+| fields _time "Daily Infection Rate"</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"Total Cases"</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="height">350</option>
+      </chart>
+    </panel>
+  </row>
+  <row depends="$showISRrow$">
+    <panel>
+      <title>Tests and Hospitalisations (as of $mt$)</title>
+      <chart>
+        <search id="isr">
+          <query>| inputlookup covid19-data-israel.csv 
+| foreach * 
+    [| eval "&lt;&lt;FIELD&gt;&gt;"=replace(&lt;&lt;FIELD&gt;&gt;,",","")] 
+| eval _time=strptime(date,"%m/%d/%Y %I:%M:%S %p") 
+| sort 0 _time 
+| autoregress total_tests as last_tests p=1 
+| eval tests=if(isnotnull(tests),tests,total_tests-last_tests) 
+| fillnull value=0 
+| fields - total_cases total_tests last_tests xpired date pct_positive_tests
+| bin span=1d _time 
+| chart values(*) as * by _time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">tests</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+</form>
