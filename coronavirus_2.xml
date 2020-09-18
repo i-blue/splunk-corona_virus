@@ -240,6 +240,29 @@
         <option name="unit">%</option>
       </single>
     </panel>
+    <panel>
+      <title>Positive Tests %</title>
+      <single>
+        <search>
+          <query>| inputlookup covid19-data-israel.csv 
+| foreach * 
+    [| eval "&lt;&lt;FIELD&gt;&gt;"=replace(&lt;&lt;FIELD&gt;&gt;,",","")] 
+| eval _time=strptime(date,"%m/%d/%Y %I:%M:%S %p") 
+| sort 0 _time 
+| fillnull value=0 
+| fields _time pct_positive_tests
+| where _time&gt;1595710800
+| bin span=1d _time 
+| chart values(*) as * by _time</query>
+          <refresh>10m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0.0</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
   </row>
   <row>
     <panel>
@@ -601,10 +624,8 @@
     [| eval "&lt;&lt;FIELD&gt;&gt;"=replace(&lt;&lt;FIELD&gt;&gt;,",","")] 
 | eval _time=strptime(date,"%m/%d/%Y %I:%M:%S %p") 
 | sort 0 _time 
-| autoregress total_tests as last_tests p=1 
-| eval tests=if(isnotnull(tests),tests,total_tests-last_tests) 
 | fillnull value=0 
-| fields - total_cases total_tests last_tests xpired date pct_positive_tests
+| fields - date pct_positive_tests
 | bin span=1d _time 
 | chart values(*) as * by _time</query>
           <earliest>-24h@h</earliest>
@@ -633,19 +654,22 @@
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">default</option>
         <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
+        <option name="charting.drilldown">all</option>
         <option name="charting.layout.splitSeries">0</option>
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.labels">[tests,admited_cases,severe_cases,IVL]</option>
         <option name="charting.legend.mode">standard</option>
         <option name="charting.legend.placement">right</option>
         <option name="charting.lineWidth">2</option>
+        <option name="charting.seriesColors">[#aaaaff,#ffff00,#ffaa00,#ff5500]</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
-        <option name="charting.legend.labels">[tests,admited_cases,severe_cases,IVL]</option>
-        <option name="charting.seriesColors">[#aaaaff,#ffff00,#ffaa00,#ff5500]</option>
+        <drilldown>
+          <link target="_blank">/app/corona_virus/dd?earliest=$earliest$&amp;latest=$latest$+43200</link>
+        </drilldown>
       </chart>
     </panel>
   </row>
