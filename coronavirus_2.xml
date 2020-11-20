@@ -236,7 +236,7 @@
         <option name="unit">%</option>
       </single>
     </panel>
-    <panel>
+    <panel depends="$showISRrow$">
       <title>Positive Tests %</title>
       <single>
         <search>
@@ -377,7 +377,7 @@
 | fields - Total
 | untable Country _time count
 | eval _time=strptime(_time,"%m/%d/%y")
-| sort 0 + _time
+| sort 0 - _time
 | eval starttime="01012020"
 | eval time2=strptime(starttime,"%m%d%Y")
 | eval days=floor((_time-time2)/86400)
@@ -393,7 +393,7 @@
     | dedup Country
     | untable Country _time count
     | eval _time=strptime(_time,"%m/%d/%y")
-    | sort 0 + _time
+    | sort 0 - _time
     | eval starttime="01012020"
     | eval time2=strptime(starttime,"%m%d%Y")
     | eval days=floor(((_time+86400)-time2)/86400)
@@ -411,7 +411,7 @@
     | dedup Country
     | untable Country _time count
     | eval _time=strptime(_time,"%m/%d/%y")
-    | sort 0 + _time
+    | sort 0 - _time
     | eval starttime="01012020"
     | eval time2=strptime(starttime,"%m%d%Y")
     | eval days=floor(((_time+86400)-time2)/86400)
@@ -663,7 +663,7 @@
       </chart>
     </panel>
   </row>
-  <row>
+  <row depends="$showISRrow$">
     <panel>
       <title>Per Million Statistics</title>
       <chart>
